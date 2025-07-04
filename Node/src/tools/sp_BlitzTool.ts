@@ -70,7 +70,7 @@ export class sp_BlitzTool implements Tool {
         type: "string",
         description: "Table containing sp_Blitz configuration"
       },
-      HelpMe: {
+      Help: {
         type: "boolean",
         description: "Show help information for sp_Blitz (default: false)"
       },
