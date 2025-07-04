@@ -2,6 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
+
 // Internal imports
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
 import { InsertDataTool } from "./tools/InsertDataTool.js";
@@ -15,16 +16,31 @@ import { CheckDBTool } from "./tools/CheckDBTool.js";
 import { sp_WhoisActiveTool } from "./tools/sp_WhoisactiveTool.js";
 import { sp_BlitzTool } from "./tools/sp_BlitzTool.js";
 import { sp_PressureDetectorTool } from "./tools/sp_PressureDetectorTool.js";
+import { AgentJobHealthTool } from "./tools/AgentJobHealthTool.js";
+import { AvailabilityGroupsTool } from "./tools/AvailabilityGroupsTool.js";
+import { BackupStatusTool } from "./tools/BackupStatusTool.js";
+import { CheckConnectivityTool } from "./tools/CheckConnectivityTool.js";
+import { DatabaseStatusTool } from "./tools/DatabaseStatusTool.js";
+import { IOHotspotsTool } from "./tools/IOHotspotsTool.js";
+import { IndexUsageStatsTool } from "./tools/IndexUsageStatsTool.js";
+import { QueryPlanTool } from "./tools/QueryPlanTool.js";
+import { StatisticsUpdateTool } from "./tools/StatisticsUpdateTool.js";
+import { WaitStatsTool } from "./tools/WaitStatsTool.js";
+
 // MSSQL Database connection configuration
 // const credential = new DefaultAzureCredential();
 // Globals for connection and token reuse
 let globalSqlPool: any = null;
 let globalAccessToken: string | null = null;
 let globalTokenExpiresOn: Date | null = null;
+
 // Function to create SQL config with fresh access token, returns token and expiry
-export async function createSqlConfig() {
+export async function createSqlConfig(serverName?: string) {
+    const servers = process.env.SERVER_LIST?.split(",") ?? [];
+    const selectedServer = serverName || servers[0]; // Use arg or default to first
+
     const config = {
-        server: process.env.SERVER_NAME || "",
+        server: selectedServer,
         database: process.env.DATABASE_NAME || "",
         user: process.env.SQL_USER || "",
         password: process.env.SQL_PASSWORD || "",
@@ -34,15 +50,15 @@ export async function createSqlConfig() {
             enableArithAbort: true,
         },
     };
-    
-    // Validate required environment variables
+
     if (!config.server || !config.database || !config.user || !config.password) {
-        throw new Error("Missing required environment variables: SERVER_NAME, DATABASE_NAME, SQL_USER, SQL_PASSWORD");
+        throw new Error("Missing required environment variables: SERVER_LIST, DATABASE_NAME, SQL_USER, SQL_PASSWORD");
     }
-    
+
     return config;
 }
 
+// Initialize all tool instances
 const updateDataTool = new UpdateDataTool();
 const insertDataTool = new InsertDataTool();
 const readDataTool = new ReadDataTool();
@@ -55,6 +71,16 @@ const checkDBTool = new CheckDBTool();
 const sp_whoisactiveTool = new sp_WhoisActiveTool();
 const sp_blitzTool = new sp_BlitzTool();
 const sp_pressureDetectorTool = new sp_PressureDetectorTool();
+const agentJobHealthTool = new AgentJobHealthTool();
+const availabilityGroupsTool = new AvailabilityGroupsTool();
+const backupStatusTool = new BackupStatusTool();
+const checkConnectivityTool = new CheckConnectivityTool();
+const databaseStatusTool = new DatabaseStatusTool();
+const ioHotspotsTool = new IOHotspotsTool();
+const indexUsageStatsTool = new IndexUsageStatsTool();
+const queryPlanTool = new QueryPlanTool();
+const statisticsUpdateTool = new StatisticsUpdateTool();
+const waitStatsTool = new WaitStatsTool();
 
 const server = new Server({
     name: "mssql-mcp-server",
@@ -71,8 +97,49 @@ const isReadOnly = process.env.READONLY === "true";
 // Request handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: isReadOnly
-        ? [listTableTool, readDataTool, describeTableTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool] // todo: add searchDataTool to the list of tools available in readonly mode once implemented
-        : [insertDataTool, readDataTool, describeTableTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, checkDBTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool], // add all new tools here
+        ? [
+            // Read-only tools for monitoring and analysis
+            listTableTool, 
+            readDataTool, 
+            describeTableTool, 
+            sp_whoisactiveTool, 
+            sp_blitzTool, 
+            sp_pressureDetectorTool,
+            agentJobHealthTool,
+            availabilityGroupsTool,
+            backupStatusTool,
+            checkConnectivityTool,
+            databaseStatusTool,
+            ioHotspotsTool,
+            indexUsageStatsTool,
+            queryPlanTool,
+            waitStatsTool
+        ]
+        : [
+            // All tools including write operations
+            insertDataTool, 
+            readDataTool, 
+            describeTableTool, 
+            updateDataTool, 
+            createTableTool, 
+            createIndexTool, 
+            dropTableTool, 
+            listTableTool, 
+            checkDBTool, 
+            sp_whoisactiveTool, 
+            sp_blitzTool, 
+            sp_pressureDetectorTool,
+            agentJobHealthTool,
+            availabilityGroupsTool,
+            backupStatusTool,
+            checkConnectivityTool,
+            databaseStatusTool,
+            ioHotspotsTool,
+            indexUsageStatsTool,
+            queryPlanTool,
+            statisticsUpdateTool,
+            waitStatsTool
+        ],
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -122,6 +189,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             case sp_pressureDetectorTool.name:
                 result = await sp_pressureDetectorTool.run(args);
                 break;
+            case agentJobHealthTool.name:
+                result = await agentJobHealthTool.run(args);
+                break;
+            case availabilityGroupsTool.name:
+                result = await availabilityGroupsTool.run(args);
+                break;
+            case backupStatusTool.name:
+                result = await backupStatusTool.run(args);
+                break;
+            case checkConnectivityTool.name:
+                result = await checkConnectivityTool.run(args);
+                break;
+            case databaseStatusTool.name:
+                result = await databaseStatusTool.run(args);
+                break;
+            case ioHotspotsTool.name:
+                result = await ioHotspotsTool.run(args);
+                break;
+            case indexUsageStatsTool.name:
+                result = await indexUsageStatsTool.run(args);
+                break;
+            case queryPlanTool.name:
+                result = await queryPlanTool.run(args);
+                break;
+            case statisticsUpdateTool.name:
+                result = await statisticsUpdateTool.run(args);
+                break;
+            case waitStatsTool.name:
+                result = await waitStatsTool.run(args);
+                break;
             default:
                 return {
                     content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -160,30 +257,55 @@ runServer().catch((error) => {
 // Connect to SQL only when handling a request
 import sql from "mssql";
 
-async function ensureSqlConnection() {
-  if (globalSqlPool && globalSqlPool.connected) {
-    return;
-  }
-
-  if (globalSqlPool) {
-    try {
-      await globalSqlPool.close();
-    } catch (e) {
-      console.warn("Failed to close old pool:", e);
+async function ensureSqlConnection(serverName?: string) {
+    if (globalSqlPool && globalSqlPool.connected) {
+        return;
     }
-  }
 
-  const config = await createSqlConfig();  // uses SQL auth
-  globalSqlPool = await sql.connect(config);
+    if (globalSqlPool) {
+        try {
+            await globalSqlPool.close();
+        } catch (e) {
+            console.warn("Failed to close old pool:", e);
+        }
+    }
+
+    const config = await createSqlConfig(serverName);
+    globalSqlPool = await sql.connect(config);
 }
 
 // Patch all tool handlers to ensure SQL connection before running
 function wrapToolRun(tool: any) {
     const originalRun = tool.run.bind(tool);
-    tool.run = async function (...args: any[]) {
-        await ensureSqlConnection();
-        return originalRun(...args);
+    tool.run = async function (args: any) {
+        const targetServer = args?.serverName;
+        await ensureSqlConnection(targetServer);
+        return originalRun(args);
     };
 }
 
-[insertDataTool, readDataTool, updateDataTool, createTableTool, createIndexTool, dropTableTool, listTableTool, describeTableTool, checkDBTool, sp_whoisactiveTool, sp_blitzTool, sp_pressureDetectorTool].forEach(wrapToolRun);
+// Apply connection wrapper to all tools
+[
+    insertDataTool, 
+    readDataTool, 
+    updateDataTool, 
+    createTableTool, 
+    createIndexTool, 
+    dropTableTool, 
+    listTableTool, 
+    describeTableTool, 
+    checkDBTool, 
+    sp_whoisactiveTool, 
+    sp_blitzTool, 
+    sp_pressureDetectorTool,
+    agentJobHealthTool,
+    availabilityGroupsTool,
+    backupStatusTool,
+    checkConnectivityTool,
+    databaseStatusTool,
+    ioHotspotsTool,
+    indexUsageStatsTool,
+    queryPlanTool,
+    statisticsUpdateTool,
+    waitStatsTool
+].forEach(wrapToolRun);
