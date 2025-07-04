@@ -19,33 +19,23 @@ export class IndexUsageStatsTool implements Tool {
   async run(_: any) {
     const query = `
       -- Find unused indexes
-      SELECT 
-        DB_NAME() AS DatabaseName,
-        OBJECT_SCHEMA_NAME(i.object_id) AS SchemaName,
-        OBJECT_NAME(i.object_id) AS TableName,
-        i.name AS IndexName,
-        i.index_id,
-        user_seeks, user_scans, user_lookups, user_updates
-      FROM sys.indexes AS i
-      LEFT JOIN sys.dm_db_index_usage_stats AS s
-        ON i.object_id = s.object_id AND i.index_id = s.index_id AND s.database_id = DB_ID()
-      WHERE i.is_disabled = 0
-        AND i.type_desc IN ('CLUSTERED', 'NONCLUSTERED')
-        AND (user_seeks IS NULL AND user_scans IS NULL AND user_lookups IS NULL)
-      ORDER BY TableName, IndexName;
-
-      -- Duplicate indexes (simplified)
-      SELECT 
-        OBJECT_SCHEMA_NAME(i1.object_id) AS SchemaName,
-        OBJECT_NAME(i1.object_id) AS TableName,
-        i1.name AS Index1,
-        i2.name AS Index2
-      FROM sys.indexes i1
-      JOIN sys.indexes i2
-        ON i1.object_id = i2.object_id
-        AND i1.index_id <> i2.index_id
-      WHERE i1.type_desc = i2.type_desc
-        AND i1.is_disabled = 0 AND i2.is_disabled = 0;
+      SELECT OBJECT_NAME(IX.OBJECT_ID) Table_Name
+	   ,IX.name AS Index_Name
+	   ,IX.type_desc Index_Type
+	   ,SUM(PS.[used_page_count]) * 8 IndexSizeKB
+	   ,IXUS.user_seeks AS NumOfSeeks
+	   ,IXUS.user_scans AS NumOfScans
+	   ,IXUS.user_lookups AS NumOfLookups
+	   ,IXUS.user_updates AS NumOfUpdates
+	   ,IXUS.last_user_seek AS LastSeek
+	   ,IXUS.last_user_scan AS LastScan
+	   ,IXUS.last_user_lookup AS LastLookup
+	   ,IXUS.last_user_update AS LastUpdate
+FROM sys.indexes IX
+INNER JOIN sys.dm_db_index_usage_stats IXUS ON IXUS.index_id = IX.index_id AND IXUS.OBJECT_ID = IX.OBJECT_ID
+INNER JOIN sys.dm_db_partition_stats PS on PS.object_id=IX.object_id
+WHERE OBJECTPROPERTY(IX.OBJECT_ID,'IsUserTable') = 1
+GROUP BY OBJECT_NAME(IX.OBJECT_ID) ,IX.name ,IX.type_desc ,IXUS.user_seeks ,IXUS.user_scans ,IXUS.user_lookups,IXUS.user_updates ,IXUS.last_user_seek ,IXUS.last_user_scan ,IXUS.last_user_lookup ,IXUS.last_user_update
     `;
     try {
       const request = new sql.Request();
