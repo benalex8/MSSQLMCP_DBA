@@ -12,6 +12,7 @@ import { CreateIndexTool } from "./tools/CreateIndexTool.js";
 import { ListTableTool } from "./tools/ListTableTool.js";
 import { DropTableTool } from "./tools/DropTableTool.js";
 import { DescribeTableTool } from "./tools/DescribeTableTool.js";
+import { ExecuteDDLTool } from "./tools/ExecuteDDLTool.js";
 import { CheckDBTool } from "./tools/CheckDBTool.js";
 import { sp_WhoisActiveTool } from "./tools/sp_WhoisactiveTool.js";
 import { sp_BlitzTool } from "./tools/sp_BlitzTool.js";
@@ -67,6 +68,7 @@ const createIndexTool = new CreateIndexTool();
 const listTableTool = new ListTableTool();
 const dropTableTool = new DropTableTool();
 const describeTableTool = new DescribeTableTool();
+const executeDDLTool = new ExecuteDDLTool();
 const checkDBTool = new CheckDBTool();
 const sp_whoisactiveTool = new sp_WhoisActiveTool();
 const sp_blitzTool = new sp_BlitzTool();
@@ -125,6 +127,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             createIndexTool, 
             dropTableTool, 
             listTableTool, 
+            executeDDLTool,
             checkDBTool, 
             sp_whoisactiveTool, 
             sp_blitzTool, 
@@ -176,6 +179,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     };
                 }
                 result = await describeTableTool.run(args as { tableName: string });
+                break;
+            case executeDDLTool.name:
+                if (!args || typeof args.ddl !== "string") {
+                    return {
+                        content: [{ type: "text", text: `Missing or invalid 'ddl' argument for execute_ddl tool.` }],
+                        isError: true,
+                    };
+                }
+                result = await executeDDLTool.run(args as { ddl: string });
                 break;
             case checkDBTool.name:
                 result = await checkDBTool.run(args);
@@ -294,6 +306,7 @@ function wrapToolRun(tool: any) {
     dropTableTool, 
     listTableTool, 
     describeTableTool, 
+    executeDDLTool,
     checkDBTool, 
     sp_whoisactiveTool, 
     sp_blitzTool, 
