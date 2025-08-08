@@ -25,7 +25,6 @@ export class DatabaseStatusTool implements Tool {
         is_read_only,
         recovery_model_desc
       FROM sys.databases
-      WHERE state_desc != 'ONLINE' OR is_read_only = 1
     `;
     try {
       const request = new sql.Request();
