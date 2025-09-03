@@ -12,6 +12,7 @@ import { DBA_ReadDataTool } from "./tools/DBA_ReadDataTool.js";  // Enhanced DBA
 import { CreateTableTool } from "./tools/CreateTableTool.js";
 import { CreateIndexTool } from "./tools/CreateIndexTool.js";
 import { ListTableTool } from "./tools/ListTableTool.js";
+import { ListSynonymsTool } from "./tools/ListSynonymsTool.js";
 import { DropTableTool } from "./tools/DropTableTool.js";
 import { DescribeTableTool } from "./tools/DescribeTableTool.js";
 
@@ -90,6 +91,7 @@ const dbaReadDataTool = new DBA_ReadDataTool();  // Enhanced DBA read tool
 const createTableTool = new CreateTableTool();
 const createIndexTool = new CreateIndexTool();
 const listTableTool = new ListTableTool();
+const listSynonymsTool = new ListSynonymsTool();
 const dropTableTool = new DropTableTool();
 const describeTableTool = new DescribeTableTool();
 
@@ -133,6 +135,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         ? [
             // Read-only tools for monitoring and analysis
             listTableTool, 
+            listSynonymsTool,
             readDataTool,
             dbaReadDataTool,  // Enhanced DBA read tool for diagnostics
             describeTableTool, 
@@ -163,6 +166,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             createIndexTool, 
             dropTableTool, 
             listTableTool, 
+            listSynonymsTool,
             // Partition tools
             createPartitionFunctionTool,
             createPartitionSchemeTool,
@@ -214,6 +218,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 break;
             case listTableTool.name:
                 result = await listTableTool.run(args);
+                break;
+            case listSynonymsTool.name:
+                result = await listSynonymsTool.run(args);
                 break;
             case dropTableTool.name:
                 result = await dropTableTool.run(args);
@@ -362,6 +369,7 @@ function wrapToolRun(tool: any) {
     createIndexTool, 
     dropTableTool, 
     listTableTool, 
+    listSynonymsTool,
     describeTableTool, 
     // Partition tools
     createPartitionFunctionTool,
