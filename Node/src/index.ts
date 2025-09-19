@@ -96,6 +96,38 @@ const queryPlanTool = new QueryPlanTool();
 const statisticsUpdateTool = new StatisticsUpdateTool();
 const waitStatsTool = new WaitStatsTool();
 
+const readOnlyTools = [
+    listTableTool,
+    listSynonymsTool,
+    readDataTool,
+    dbaReadDataTool,
+    describeTableTool,
+    checkDBTool,
+    sp_whoisactiveTool,
+    sp_blitzTool,
+    sp_pressureDetectorTool,
+    backupStatusTool,
+    checkConnectivityTool,
+    databaseStatusTool,
+    ioHotspotsTool,
+    indexUsageStatsTool,
+    queryPlanTool,
+    waitStatsTool,
+];
+
+const writeTools = [
+    insertDataTool,
+    dbaInsertDataTool,
+    updateDataTool,
+    createTableTool,
+    createIndexTool,
+    dropTableTool,
+    statisticsUpdateTool,
+];
+
+const allTools = [...readOnlyTools, ...writeTools];
+const readOnlyToolNames = new Set(readOnlyTools.map(tool => tool.name));
+
 const server = new Server({
     name: "mssql-mcp-server",
     version: "0.1.0",
@@ -110,56 +142,18 @@ const isReadOnly = process.env.READONLY === "true";
 
 // Request handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: isReadOnly
-        ? [
-            // Read-only tools for monitoring and analysis
-            listTableTool, 
-            listSynonymsTool,
-            readDataTool,
-            dbaReadDataTool,
-            describeTableTool,
-            dbaInsertDataTool,
-            sp_whoisactiveTool,
-            sp_blitzTool,
-            sp_pressureDetectorTool,
-            backupStatusTool,
-            checkConnectivityTool,
-            databaseStatusTool,
-            ioHotspotsTool,
-            indexUsageStatsTool,
-            queryPlanTool,
-            waitStatsTool
-        ]
-        : [
-            // All tools including write operations
-            insertDataTool,
-            dbaInsertDataTool,
-            readDataTool,
-            dbaReadDataTool,
-            describeTableTool,
-            updateDataTool,
-            createTableTool,
-            createIndexTool,
-            dropTableTool,
-            listTableTool,
-            listSynonymsTool,
-            checkDBTool,
-            sp_whoisactiveTool,
-            sp_blitzTool,
-            sp_pressureDetectorTool,
-            backupStatusTool,
-            checkConnectivityTool,
-            databaseStatusTool,
-            ioHotspotsTool,
-            indexUsageStatsTool,
-            queryPlanTool,
-            statisticsUpdateTool,
-            waitStatsTool
-        ],
+    tools: isReadOnly ? readOnlyTools : allTools,
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    
+    if (isReadOnly && !readOnlyToolNames.has(name)) {
+        return {
+            content: [{ type: "text", text: `Tool '${name}' is not available in read-only mode.` }],
+            isError: true,
+        };
+    }
     
     try {
         let result: any;
