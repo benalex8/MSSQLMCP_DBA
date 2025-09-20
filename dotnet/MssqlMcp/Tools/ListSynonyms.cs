@@ -43,14 +43,14 @@ public partial class Tools
                 {
                     synonyms.Add(new
                     {
-                        synonym_name = reader.GetString("synonym_name"),
-                        target_object = reader.GetString("target_object"),
-                        server_name = reader.GetString("server_name"),
-                        database_name = reader.GetString("database_name"),
-                        schema_name = reader.GetString("schema_name"),
-                        object_name = reader.GetString("object_name"),
-                        create_date = reader.GetDateTime("create_date"),
-                        modify_date = reader.GetDateTime("modify_date")
+                        synonym_name = reader.IsDBNull(0) ? null : reader.GetString(0),
+                        target_object = reader.IsDBNull(1) ? null : reader.GetString(1),
+                        server_name = reader.IsDBNull(2) ? null : reader.GetString(2),
+                        database_name = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        schema_name = reader.IsDBNull(4) ? null : reader.GetString(4),
+                        object_name = reader.IsDBNull(5) ? null : reader.GetString(5),
+                        create_date = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6),
+                        modify_date = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7)
                     });
                 }
                 return new DbOperationResult(success: true, data: synonyms);
