@@ -4,14 +4,14 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 export class DBA_ReadDataTool implements Tool {
   [key: string]: any;
   name = "DBA_read_data";
-  description = "Enhanced DBA tool for executing diagnostic SELECT queries with performance monitoring capabilities. Supports SET STATISTICS IO/TIME, SHOWPLAN, DBCC commands, and other DBA diagnostic operations for performance troubleshooting.";
+  description = "Enhanced DBA tool for executing diagnostic SELECT queries with performance monitoring capabilities. Supports CTEs (WITH clause), SET STATISTICS IO/TIME, SHOWPLAN, DBCC commands, and other DBA diagnostic operations for performance troubleshooting.";
   
   inputSchema = {
     type: "object",
     properties: {
-      query: { 
-        type: "string", 
-        description: "SQL query or batch for DBA diagnostics. Supports SELECT, SET STATISTICS, SHOWPLAN, DBCC diagnostics. Example: 'SET STATISTICS IO ON; SELECT * FROM Posts WHERE Id = 1; SET STATISTICS IO OFF;'" 
+      query: {
+        type: "string",
+        description: "SQL query or batch for DBA diagnostics. Supports SELECT, CTEs (WITH clause), SET STATISTICS, SHOWPLAN, DBCC diagnostics. Example: 'WITH TopPosts AS (SELECT TOP 10 * FROM Posts ORDER BY Score DESC) SELECT * FROM TopPosts;' or 'SET STATISTICS IO ON; SELECT * FROM Posts WHERE Id = 1; SET STATISTICS IO OFF;'"
       },
       captureExecutionPlan: {
         type: "boolean",
@@ -88,9 +88,9 @@ export class DBA_ReadDataTool implements Tool {
    */
   private validateDBAQuery(query: string): { isValid: boolean; error?: string } {
     if (!query || typeof query !== 'string') {
-      return { 
-        isValid: false, 
-        error: 'Query must be a non-empty string' 
+      return {
+        isValid: false,
+        error: 'Query must be a non-empty string'
       };
     }
 
@@ -102,9 +102,9 @@ export class DBA_ReadDataTool implements Tool {
       .trim();
 
     if (!cleanQuery) {
-      return { 
-        isValid: false, 
-        error: 'Query cannot be empty after removing comments' 
+      return {
+        isValid: false,
+        error: 'Query cannot be empty after removing comments'
       };
     }
 
@@ -114,9 +114,9 @@ export class DBA_ReadDataTool implements Tool {
     for (const keyword of DBA_ReadDataTool.DANGEROUS_KEYWORDS) {
       const keywordRegex = new RegExp(`(^|\\s|[^A-Za-z0-9_])${keyword}($|\\s|[^A-Za-z0-9_])`, 'i');
       if (keywordRegex.test(upperQuery)) {
-        return { 
-          isValid: false, 
-          error: `Dangerous keyword '${keyword}' detected. This DBA tool prohibits data modification operations.` 
+        return {
+          isValid: false,
+          error: `Dangerous keyword '${keyword}' detected. This DBA tool prohibits data modification operations.`
         };
       }
     }
@@ -124,14 +124,15 @@ export class DBA_ReadDataTool implements Tool {
     // Check for dangerous patterns
     for (const pattern of DBA_ReadDataTool.DANGEROUS_PATTERNS) {
       if (pattern.test(query)) {
-        return { 
-          isValid: false, 
-          error: 'Potentially dangerous operation detected. This tool is for diagnostic queries only.' 
+        return {
+          isValid: false,
+          error: 'Potentially dangerous operation detected. This tool is for diagnostic queries only.'
         };
       }
     }
 
     // Validate that the batch contains at least one SELECT or allowed DBA command
+    // Also allow queries starting with WITH (CTEs) as long as they end with SELECT
     const hasValidOperation = /SELECT|SET\s+STATISTICS|SET\s+SHOWPLAN|DBCC\s+SHOW_STATISTICS/i.test(upperQuery);
     if (!hasValidOperation) {
       return {
@@ -140,11 +141,28 @@ export class DBA_ReadDataTool implements Tool {
       };
     }
 
+    // Additional validation for CTE queries (WITH clause)
+    // CTEs are safe as they're just named subqueries, but we validate structure
+    if (/^\s*WITH\s+/i.test(upperQuery)) {
+      // Ensure CTE query ends with a SELECT statement
+      // Split by semicolons to find the final statement
+      const statements = cleanQuery.split(';').map(s => s.trim()).filter(s => s.length > 0);
+      const lastStatement = statements[statements.length - 1].toUpperCase();
+
+      // The final statement should contain SELECT (CTEs must be used in a SELECT)
+      if (!lastStatement.includes('SELECT')) {
+        return {
+          isValid: false,
+          error: 'CTE (WITH clause) queries must end with a SELECT statement.'
+        };
+      }
+    }
+
     // Limit query length to prevent potential DoS
     if (query.length > 50000) {
-      return { 
-        isValid: false, 
-        error: 'Query batch is too long. Maximum allowed length is 50,000 characters.' 
+      return {
+        isValid: false,
+        error: 'Query batch is too long. Maximum allowed length is 50,000 characters.'
       };
     }
 
